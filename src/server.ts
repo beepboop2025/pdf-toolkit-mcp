@@ -7,6 +7,9 @@ import { registerAnnotateTools } from './tools/annotate.js';
 import { registerFormTools } from './tools/forms.js';
 import { registerMetadataTools } from './tools/metadata.js';
 import { registerSecurityTools } from './tools/security.js';
+import { registerSearchTools } from './tools/search.js';
+import { registerOptimizeTools } from './tools/optimize.js';
+import { registerAttachmentTools } from './tools/attachments.js';
 
 export function createServer(): McpServer {
   const server = new McpServer({
@@ -22,6 +25,9 @@ export function createServer(): McpServer {
   registerFormTools(server);
   registerMetadataTools(server);
   registerSecurityTools(server);
+  registerSearchTools(server);
+  registerOptimizeTools(server);
+  registerAttachmentTools(server);
 
   return server;
 }

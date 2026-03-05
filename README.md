@@ -1,6 +1,6 @@
 # pdf-toolkit-mcp
 
-A comprehensive MCP (Model Context Protocol) server for PDF operations. **29 tools** for reading, creating, merging, splitting, watermarking, stamping, form filling, redacting, annotating, and more.
+A comprehensive MCP (Model Context Protocol) server for PDF operations. **37 tools** for reading, searching, creating, merging, splitting, watermarking, stamping, form filling, redacting, annotating, comparing, optimizing, and more.
 
 Built on open-source libraries — **not affiliated with Adobe**. Uses [pdf-lib](https://pdf-lib.js.org/) for PDF manipulation and [unpdf](https://github.com/nicbou/unpdf) (Mozilla pdf.js) for text extraction.
 
@@ -53,13 +53,16 @@ Add to `~/.claude/settings.json`:
 | Category | Tools | Count |
 |----------|-------|-------|
 | **Read** | Extract text (per-page), PDF info & metadata | 2 |
+| **Search** | Full-text search with context, compare two PDFs | 2 |
 | **Create** | Generate PDFs from text (with headings), images to PDF | 2 |
-| **Manipulate** | Merge, split, rotate, delete, extract, reorder, insert, reverse, blank pages, crop, overlay PDF | 11 |
+| **Manipulate** | Merge, split, rotate, delete, extract, reorder, insert, reverse, blank pages, crop, overlay PDF, N-up page layout | 12 |
 | **Overlay** | Watermark, page numbers, add text, add image, headers/footers, business stamps, signatures | 7 |
 | **Annotate** | Redact regions, highlight, draw shapes (rect/line/ellipse) | 3 |
 | **Forms** | Read form fields, fill forms (text/checkbox/dropdown/radio) | 2 |
 | **Metadata** | Set title, author, subject, keywords, creator, producer | 1 |
 | **Security** | Decrypt password-protected PDFs | 1 |
+| **Optimize** | Flatten forms, compress, validate, repair | 4 |
+| **Attachments** | Embed files inside a PDF | 1 |
 
 ## Tool Reference
 
@@ -72,6 +75,18 @@ Add to `~/.claude/settings.json`:
 **`pdf_info`** — Page count, file size, all metadata, form field count, page dimensions (pts + inches), rotation, PDF version.
 - `filePath` (string, required) — PDF path
 - `password` (string, optional) — For encrypted PDFs
+
+### Searching
+
+**`pdf_search`** — Full-text search across all pages. Returns matches with page numbers and surrounding context.
+- `filePath` (string, required) — PDF path
+- `query` (string, required) — Text or regex pattern
+- `caseSensitive` (boolean, default: false)
+- `regex` (boolean, default: false) — Treat query as regex
+- `contextChars` (number, default: 60) — Characters of context around each match
+
+**`pdf_compare`** — Compare text content of two PDFs page by page. Reports identical/different pages with word-level change summary.
+- `filePath1`, `filePath2` (strings, required)
 
 ### Creating
 
@@ -130,6 +145,11 @@ Add to `~/.claude/settings.json`:
 - `basePath` (background), `overlayPath` (foreground), `outputPath`
 - `overlayPage` (default: 1) — Which overlay page to use
 - `pages` (optional) — Which base pages to apply it to
+
+**`pdf_page_layout`** — Arrange multiple pages onto single sheets (N-up printing). Scales and positions source pages into a 2-up or 4-up grid.
+- `filePath`, `outputPath`
+- `layout`: "2-up" (2 pages side-by-side) or "4-up" (2×2 grid)
+- `pageSize`: A4, Letter, Legal (default: Letter)
 
 ### Overlays
 
@@ -215,6 +235,29 @@ Add to `~/.claude/settings.json`:
 **`pdf_decrypt`** — Remove password protection (requires the correct password).
 - `filePath`, `password`, `outputPath`
 
+### Optimize
+
+**`pdf_flatten`** — Flatten all form fields into static page content. Fields become non-editable. Useful for finalizing documents.
+- `filePath`, `outputPath`
+
+**`pdf_compress`** — Reduce PDF file size by rebuilding document structure. Copies pages to a fresh PDF (dropping orphaned objects), optionally strips metadata and flattens forms. Results vary.
+- `filePath`, `outputPath`
+- `stripMetadata` (boolean, default: false) — Remove title, author, subject, keywords
+- `flattenForms` (boolean, default: false) — Flatten form fields
+
+**`pdf_validate`** — Health check for a PDF file. Checks if it can be parsed, reports page count, metadata, form fields, page dimensions, and any structural issues.
+- `filePath` (string, required)
+
+**`pdf_repair`** — Attempt to repair a damaged PDF by loading with lenient parsing, copying all recoverable pages to a clean document, and re-saving.
+- `filePath` (damaged PDF path), `outputPath`
+
+### Attachments
+
+**`pdf_attach`** — Embed files as attachments inside a PDF. Attached files travel with the PDF and can be extracted by PDF readers. Supports any file type with auto-detected MIME types.
+- `filePath`, `outputPath`
+- `attachments` — `[{path, description?}]` — Files to embed
+- Recognized types: PDF, TXT, CSV, JSON, XML, HTML, PNG, JPG, GIF, SVG, ZIP, DOC/DOCX, XLS/XLSX (others default to `application/octet-stream`)
+
 ## Error Handling
 
 All tools return structured error messages. Common scenarios:
@@ -228,6 +271,8 @@ All tools return structured error messages. Common scenarios:
 | Unsupported image | `Error: Unsupported image format: .webp. Use PNG or JPG.` |
 | Delete all pages | `Error: Cannot delete all pages` |
 | No metadata given | `Error: No metadata fields specified. Provide at least one of: title, author, ...` |
+| Invalid regex | `Error: Invalid regex: ...` |
+| Damaged PDF | `Error: PDF is too damaged to repair: ...` |
 
 Tools never throw unhandled exceptions — all errors are caught and returned as MCP error responses with `isError: true`.
 
@@ -292,8 +337,9 @@ All color parameters (`color`, `borderColor`, highlight `color`, etc.) accept:
 | **Redaction** | **Visual only** — covers content but does NOT strip data from the PDF. See warning above. |
 | **Overlay** | Single overlay page applied to base pages. Not a page-by-page multi-page overlay. |
 | **Form filling** | Supports partial fills. Flatten affects ALL fields (filled and unfilled). |
-| **Compression** | No PDF optimization/compression tool. Load+save may slightly change file size. |
+| **Compression** | Rebuilds document structure only — no image downsampling or stream compression. |
 | **Annotations** | Drawn as page content (not PDF annotation objects). Cannot be toggled or removed by PDF viewers. |
+| **Search/Compare** | Text-based comparison only. Cannot detect visual differences in images or layout. |
 
 ## Tech Stack
 

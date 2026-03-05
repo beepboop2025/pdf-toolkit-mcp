@@ -381,4 +381,85 @@ export function registerManipulateTools(server: McpServer) {
       }
     }
   );
+
+  server.tool(
+    'pdf_page_layout',
+    'Arrange multiple PDF pages onto single sheets in N-up layouts. Puts 2 or 4 source pages onto each output page side-by-side. Useful for printing handouts, saving paper, or creating thumbnail sheets.',
+    {
+      filePath: z.string().describe('Source PDF file path'),
+      outputPath: z.string().describe('Output path'),
+      layout: z.enum(['2-up', '4-up']).describe('"2-up" = 2 pages per sheet side-by-side, "4-up" = 4 pages per sheet in a 2x2 grid'),
+      pageSize: z.enum(['A4', 'Letter', 'Legal']).optional().default('Letter').describe('Output page size (default: Letter)'),
+    },
+    async ({ filePath, outputPath, layout, pageSize }) => {
+      try {
+        const source = await loadPdf(filePath);
+        const totalPages = source.getPageCount();
+        const perSheet = layout === '2-up' ? 2 : 4;
+        const [outW, outH] = getPageSize(pageSize);
+
+        const doc = await PDFDocument.create();
+        const allIndices = Array.from({ length: totalPages }, (_, i) => i);
+        const embedded = await doc.embedPages(
+          allIndices.map((i) => source.getPage(i))
+        );
+
+        for (let i = 0; i < totalPages; i += perSheet) {
+          const page = doc.addPage([outW, outH]);
+
+          if (layout === '2-up') {
+            const slotW = outW / 2;
+            const slotH = outH;
+            const positions = [
+              { x: 0, y: 0 },
+              { x: slotW, y: 0 },
+            ];
+            for (let j = 0; j < 2 && i + j < totalPages; j++) {
+              const emb = embedded[i + j];
+              const srcW = emb.width;
+              const srcH = emb.height;
+              const scale = Math.min(slotW / srcW, slotH / srcH);
+              const drawW = srcW * scale;
+              const drawH = srcH * scale;
+              page.drawPage(emb, {
+                x: positions[j].x + (slotW - drawW) / 2,
+                y: positions[j].y + (slotH - drawH) / 2,
+                width: drawW,
+                height: drawH,
+              });
+            }
+          } else {
+            const slotW = outW / 2;
+            const slotH = outH / 2;
+            const positions = [
+              { x: 0, y: slotH },        // top-left
+              { x: slotW, y: slotH },     // top-right
+              { x: 0, y: 0 },             // bottom-left
+              { x: slotW, y: 0 },          // bottom-right
+            ];
+            for (let j = 0; j < 4 && i + j < totalPages; j++) {
+              const emb = embedded[i + j];
+              const srcW = emb.width;
+              const srcH = emb.height;
+              const scale = Math.min(slotW / srcW, slotH / srcH);
+              const drawW = srcW * scale;
+              const drawH = srcH * scale;
+              page.drawPage(emb, {
+                x: positions[j].x + (slotW - drawW) / 2,
+                y: positions[j].y + (slotH - drawH) / 2,
+                width: drawW,
+                height: drawH,
+              });
+            }
+          }
+        }
+
+        const result = await savePdf(doc, outputPath);
+        const sheets = Math.ceil(totalPages / perSheet);
+        return toolResult(`${layout} layout: ${totalPages} pages -> ${sheets} sheet(s): ${result.path}\nSize: ${formatBytes(result.size)}`);
+      } catch (error: unknown) {
+        return toolError(`Failed to create layout: ${errMsg(error)}`);
+      }
+    }
+  );
 }

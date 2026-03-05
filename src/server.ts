@@ -10,7 +10,7 @@ import { registerSecurityTools } from './tools/security.js';
 
 export function createServer(): McpServer {
   const server = new McpServer({
-    name: 'adobe-pdf-mcp',
+    name: 'pdf-toolkit-mcp',
     version: '2.0.0',
   });
 

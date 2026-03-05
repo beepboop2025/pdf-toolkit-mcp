@@ -6,7 +6,7 @@ import { loadPdf, savePdf, parseColor, toolResult, toolError, errMsg } from '../
 export function registerAnnotateTools(server: McpServer) {
   server.tool(
     'pdf_redact',
-    'Redact (black out) rectangular regions on PDF pages. Draws opaque filled rectangles over sensitive content. Note: this is a visual redaction — it covers content with an opaque box but does not remove underlying data from the PDF structure.',
+    'VISUAL-ONLY redaction: draws opaque rectangles over regions on PDF pages. WARNING: This does NOT remove the underlying text/data from the PDF — it only covers it visually. The original content can still be extracted programmatically. Do NOT use this for true document sanitization of sensitive data (SSNs, passwords, etc). For true redaction, use a tool that rewrites the PDF content stream (e.g. Adobe Acrobat Pro, qpdf, or mutool).',
     {
       filePath: z.string().describe('PDF file path'),
       outputPath: z.string().describe('Output path'),
